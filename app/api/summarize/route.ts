@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
   // AI 연결 키 (값은 읽어 쓰지 않고 있는지만 확인한다)
   if (!hasApiKey()) {
-    return fail(503, "AI 연결 키가 아직 없어요. .env에 ANTHROPIC_API_KEY를 넣고 서버를 다시 켜 주세요.");
+    return fail(503, "AI 연결 키가 아직 없어요. .env에 OPENAI_API_KEY를 넣고 서버를 다시 켜 주세요.");
   }
 
   const { articles, edition, date } = splitArticles(pages);

@@ -63,6 +63,13 @@ export function checkSummary(
       problems.push("차이 줄에 기사에 없는 보도사가 있었어요");
       continue;
     }
+    // 한 줄에는 보도사 한 곳만: 다른 보도사 이름이 섞이면 출처(보도사·쪽수)가 틀려진다
+    for (const other of outlets) {
+      if (other !== d.outlet && text.includes(other)) {
+        problems.push("차이 한 줄에 보도사 두 곳 이상이 섞였어요");
+        break;
+      }
+    }
     let page = d.page;
     if (!validPairs.has(`${d.outlet}|${page}`)) {
       page = pagesByOutlet.get(d.outlet)![0]!;
