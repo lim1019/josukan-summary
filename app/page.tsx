@@ -1,6 +1,7 @@
 import Link from "next/link";
+import UploadForm from "./_components/UploadForm";
 
-// Design Ref: §1.1 — 처음 상태 화면: 앱 이름과 한 줄 설명. 업로드 칸은 PLAN 작업 3에서 이 자리에 들어온다.
+// Design Ref: §1.1 — 처음 상태 화면: 앱 이름, 한 줄 설명, 올리기 칸
 export default function Home() {
   return (
     <div className="flex flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
@@ -13,12 +14,7 @@ export default function Home() {
           보도사마다 어떻게 다뤘는지도 한눈에 보여줘요.
         </p>
 
-        <p
-          className="max-w-xl rounded-lg border border-zinc-200 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400"
-          role="status"
-        >
-          준비 중이에요. 스크랩 PDF를 올리는 기능이 곧 이 자리에 추가돼요.
-        </p>
+        <UploadForm />
 
         {/* 개발 중에만 쓰는 임시 도구 링크. /dev/pdf-check를 지울 때 이 링크도 함께 지운다. */}
         <Link
