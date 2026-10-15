@@ -19,10 +19,15 @@ export type Article = {
   text: string;
 };
 
-/** 보도사별 차이 한 줄. 끝에 붙는 출처(보도사·쪽수)를 함께 가진다. */
-export type Difference = {
+/** 보도사가 사건을 다룬 태도. 기사에 나타난 표현·강조점만 근거로 하며, 보도사의 정치 성향 평가가 아니다. */
+export const STANCES = ["긍정", "부정", "중립"] as const;
+export type Stance = (typeof STANCES)[number];
+
+/** 보도사 한 곳의 경향 한 줄. 끝에 붙는 출처(보도사·쪽수)를 함께 가진다. */
+export type OutletView = {
   outlet: string;
   page: number;
+  stance: Stance;
   text: string;
 };
 
@@ -31,9 +36,8 @@ export type SummarizedEvent = {
   id: number;
   title: string;
   summary: string;
-  /** true면 보도사 간 뚜렷한 차이가 없다는 뜻 ("차이 없음") */
-  noDifference: boolean;
-  differences: Difference[];
+  /** 보도사마다 한 줄씩 (보도사가 한 곳뿐이면 비어 있다) */
+  views: OutletView[];
   /** 이 사건을 다룬 곳 (보도사·쪽수) */
   coverage: { outlet: string; page: number }[];
   /** 규칙을 끝내 지키지 못한 부분이 있으면 사람이 읽을 수 있는 안내 */
@@ -68,27 +72,27 @@ export const GROUPING_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-/** 2단계: 사건 하나의 제목·요약·보도사별 차이 */
+/** 2단계: 사건 하나의 제목·요약·보도사별 경향 */
 export const SUMMARY_SCHEMA = {
   type: "object",
   properties: {
     title: { type: "string" },
     summary: { type: "string" },
-    noDifference: { type: "boolean" },
-    differences: {
+    views: {
       type: "array",
       items: {
         type: "object",
         properties: {
           outlet: { type: "string" },
           page: { type: "integer" },
+          stance: { type: "string", enum: ["긍정", "부정", "중립"] },
           text: { type: "string" },
         },
-        required: ["outlet", "page", "text"],
+        required: ["outlet", "page", "stance", "text"],
         additionalProperties: false,
       },
     },
   },
-  required: ["title", "summary", "noDifference", "differences"],
+  required: ["title", "summary", "views"],
   additionalProperties: false,
 } as const;

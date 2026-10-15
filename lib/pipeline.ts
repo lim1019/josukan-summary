@@ -1,11 +1,10 @@
 // Design Ref: §2 단계 5~8, §5 — 사건 묶기(1단계)와 사건별 요약·보도사별 차이(2단계) 흐름.
 // AI를 실제로 부르는 부분은 lib/ai.ts에서 `ModelCaller`로 넘겨받는다 (이 파일은 서버 전용이 아니라서 시험하기 쉽다).
-import { checkSummary, MAX_DIFFERENCES, MAX_SUMMARY_SENTENCES, MIN_DIFFERENCES } from "./rules";
+import { checkSummary, MAX_SUMMARY_SENTENCES } from "./rules";
 import {
   GROUPING_SCHEMA,
   SUMMARY_SCHEMA,
   type Article,
-  type Difference,
   type StreamMessage,
   type SummarizedEvent,
 } from "./schema";
@@ -83,15 +82,19 @@ export async function groupArticles(articles: Article[], call: ModelCaller): Pro
   return sanitizeGroups(raw, articles);
 }
 
-// ───────────── 2단계: 사건 하나의 요약과 보도사별 차이 ─────────────
+// ───────────── 2단계: 사건 하나의 요약과 보도사별 경향 ─────────────
 
 const SUMMARY_SYSTEM = `당신은 신문 스크랩을 정리하는 편집 보조입니다.
 같은 사건을 다룬 기사들을 읽고 아래 규칙대로 답하세요.
 - title: 일어난 사건 자체를 한 줄로 알려 주는 짧은 제목 (보도 경향이나 "보도 차이" 같은 말은 넣지 마세요).
 - summary: ${MAX_SUMMARY_SENTENCES}문장 이내의 요약. 제공된 기사에 없는 내용은 쓰지 마세요. 추측하거나 바깥 지식을 덧붙이지 마세요. 숫자·날짜·기관명은 기사에 나온 표기 그대로 쓰세요.
-- differences: 보도사가 2곳 이상일 때, 같은 사건을 다루는 방식(무엇을 강조했고 어떤 표현을 썼는지)이 가장 뚜렷하게 갈리는 보도사를 ${MIN_DIFFERENCES}~${MAX_DIFFERENCES}곳 골라 ${MIN_DIFFERENCES}~${MAX_DIFFERENCES}줄로 쓰세요. 한 줄에는 보도사 한 곳만 쓰고, 다른 보도사 이름을 그 줄에 섞지 마세요. 한 줄마다 outlet(기사의 보도사 이름 그대로), page(그 기사가 시작하는 쪽수), text(그 보도사가 어떻게 다뤘는지)를 채우세요. 기사에 실제로 나타난 표현과 강조점만 근거로 삼고, 보도사의 정치 성향을 단정하거나 평가하지 마세요.
-- 보도사 사이에 뚜렷한 차이가 없으면 noDifference를 true로 하고 differences는 빈 목록으로 두세요.
-- 보도사가 한 곳뿐이면 noDifference는 false, differences는 빈 목록으로 두세요.
+- views: 기사를 낸 보도사 **마다 정확히 한 항목씩** 쓰세요 (보도사가 2곳 이상일 때). 빠뜨리거나 같은 보도사를 두 번 쓰지 마세요.
+  - outlet: 기사의 보도사 이름 그대로.
+  - page: 그 보도사 기사가 시작하는 쪽수.
+  - stance: 이 사건이 가리키는 정책·결정·사실에 대해 그 기사의 표현과 강조점이 우호적이면 "긍정", 비판적이거나 우려 중심이면 "부정", 사실 전달 위주이거나 양쪽을 균형 있게 다루면 "중립".
+  - text: 그 보도사가 무엇을 강조했고 어떤 표현을 썼는지 한 문장. 한 항목에는 보도사 한 곳만 쓰고 다른 보도사 이름을 섞지 마세요.
+  - 기사에 실제로 나타난 표현과 강조점만 근거로 삼으세요. 보도사의 정치 성향을 단정하거나 평가하지 마세요. stance는 이 사건에 대한 그 기사의 태도일 뿐입니다.
+- 보도사가 한 곳뿐이면 views는 빈 목록으로 두세요.
 - 링크(http로 시작하는 주소)는 쓰지 마세요.
 ${INJECTION_GUARD}`;
 
@@ -105,24 +108,24 @@ function summaryPrompt(articles: Article[], feedback?: string): string {
 function isRawSummary(value: unknown): value is {
   title: string;
   summary: string;
-  noDifference: boolean;
-  differences: Difference[];
+  views: { outlet: string; page: number; stance: string; text: string }[];
 } {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
     typeof v.title === "string" &&
     typeof v.summary === "string" &&
-    typeof v.noDifference === "boolean" &&
-    Array.isArray(v.differences) &&
-    v.differences.every(
-      (d) =>
-        typeof d === "object" &&
-        d !== null &&
-        typeof (d as Difference).outlet === "string" &&
-        typeof (d as Difference).page === "number" &&
-        typeof (d as Difference).text === "string",
-    )
+    Array.isArray(v.views) &&
+    v.views.every((d) => {
+      if (typeof d !== "object" || d === null) return false;
+      const x = d as Record<string, unknown>;
+      return (
+        typeof x.outlet === "string" &&
+        typeof x.page === "number" &&
+        typeof x.stance === "string" &&
+        typeof x.text === "string"
+      );
+    })
   );
 }
 
@@ -158,8 +161,7 @@ export async function summarizeEvent(
       id,
       title: articles[0]?.title ?? "",
       summary: "",
-      noDifference: false,
-      differences: [],
+      views: [],
       coverage,
       warnings: ["이 사건은 요약하지 못했어요. 다시 시도해 주세요."],
     };
@@ -169,8 +171,7 @@ export async function summarizeEvent(
     id,
     title: last.title,
     summary: last.summary,
-    noDifference: last.noDifference,
-    differences: last.differences,
+    views: last.views,
     coverage,
     warnings: last.problems,
   };
@@ -204,8 +205,7 @@ export async function runPipeline(
           id: index + 1,
           title: members[0]?.title ?? "",
           summary: "",
-          noDifference: false,
-          differences: [],
+          views: [],
           coverage: members.map((a) => ({ outlet: a.outlet, page: a.page })),
           warnings: ["이 사건은 요약하지 못했어요. 다시 시도해 주세요."],
         };
