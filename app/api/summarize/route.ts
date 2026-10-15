@@ -1,6 +1,6 @@
 // Design Ref: §2 단계 3~4 — 브라우저가 뽑은 글자만 받아 검사하고, 받았다는 확인을 돌려준다.
 // PDF 원본은 받지 않고, 받은 글자도 저장하지 않는다 (PRD 7번, DESIGN §2.2).
-// 이 길은 proxy.ts(접속 암호·속도 제한)를 먼저 통과해야 도착한다.
+// 이 길은 proxy.ts(요청 모양 검사·속도 제한)를 먼저 통과해야 도착한다.
 // 요약(AI 호출)은 PLAN 작업 5~8에서 이 자리에 이어 붙인다.
 import { NextResponse } from "next/server";
 import { LIMITS } from "@/lib/limits";

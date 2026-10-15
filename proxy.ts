@@ -1,13 +1,9 @@
-// Design Ref: §3.1, §7 — 로그인 없는 공개 API가 AI 비용 남용에 쓰이지 않도록 입구에서 막는다
-// Plan SC: CHECK.md P1-1 (보안 점검 1번) — 접속 암호 + 요청 모양 검사 + 속도 제한
+// Design Ref: §3.1, §7 — 공개 API가 짧은 시간에 마구 호출되지 않도록 입구에서 걸러 낸다
+// Plan SC: CHECK.md P1-1 (보안 점검 1번) — 요청 모양 검사 + 속도 제한 (접속 암호는 쓰지 않기로 함)
 //
 // 이 파일은 `app/api/` 아래 모든 요청이 실제 API 코드에 닿기 전에 먼저 실행된다.
 // 화면(페이지) 요청에는 적용되지 않는다.
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-
-/** 접속 암호는 `.env`의 APP_ACCESS_CODE에서 읽는다 (NEXT_PUBLIC_ 이름 금지: 브라우저로 나가면 안 됨) */
-const SECRET_ENV_NAME = "APP_ACCESS_CODE";
 
 /** 같은 접속자가 1분에 보낼 수 있는 요청 수 */
 const RATE_LIMIT_MAX = 10;
@@ -44,21 +40,8 @@ function isRateLimited(key: string): boolean {
   return recent.length > RATE_LIMIT_MAX;
 }
 
-/** 글자 하나하나 비교 시간을 일정하게 해서 암호를 추측하기 어렵게 한다 */
-function isSameSecret(given: string, expected: string): boolean {
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
 export function proxy(request: NextRequest) {
-  // 암호가 설정되지 않았으면 모두 막는다 (실수로 열어 두지 않기 위해)
-  const secret = process.env[SECRET_ENV_NAME];
-  if (!secret) {
-    return deny(503, "서버 설정이 아직 끝나지 않았어요.");
-  }
-
-  // 1) 너무 자주 요청하면 막는다 (암호를 계속 찍어 보는 시도도 여기서 느려진다)
+  // 1) 너무 자주 요청하면 막는다
   if (isRateLimited(clientKey(request))) {
     return deny(429, "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.");
   }
@@ -75,12 +58,6 @@ export function proxy(request: NextRequest) {
     if (!contentType.toLowerCase().startsWith("application/json")) {
       return deny(415, "JSON 형식의 요청만 받아요.");
     }
-  }
-
-  // 4) 접속 암호가 맞아야 한다
-  const given = request.headers.get("x-access-code") ?? "";
-  if (!isSameSecret(given, secret)) {
-    return deny(401, "접속 암호가 맞지 않아요.");
   }
 
   return NextResponse.next();

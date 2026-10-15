@@ -26,11 +26,10 @@ function isPdf(file: File): boolean {
 
 export default function UploadForm() {
   const [file, setFile] = useState<File | null>(null);
-  const [accessCode, setAccessCode] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const busy = status.kind === "reading" || status.kind === "sending";
-  const canSubmit = file !== null && accessCode.length > 0 && !busy;
+  const canSubmit = file !== null && !busy;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,10 +81,7 @@ export default function UploadForm() {
     try {
       const response = await fetch("/api/summarize", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-access-code": accessCode,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pages }),
       });
 
@@ -128,22 +124,6 @@ export default function UploadForm() {
           }}
           className="block w-full text-sm file:mr-4 file:rounded-full file:border-0 file:bg-black file:px-4 file:py-2 file:text-white dark:file:bg-zinc-50 dark:file:text-black"
         />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label htmlFor="access-code" className="text-sm font-medium">
-          접속 암호
-        </label>
-        <input
-          id="access-code"
-          type="password"
-          autoComplete="off"
-          value={accessCode}
-          disabled={busy}
-          onChange={(e) => setAccessCode(e.target.value)}
-          className="rounded border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
-        />
-        <p className="text-xs text-zinc-500">서버에 설정한 암호를 입력해 주세요. 화면을 닫으면 지워져요.</p>
       </div>
 
       <button
