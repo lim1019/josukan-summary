@@ -6,8 +6,10 @@
 import { useRef, useState } from "react";
 import { extractPages } from "@/lib/pdf";
 import { LIMITS } from "@/lib/limits";
-import type { StreamMessage, SummarizedEvent } from "@/lib/schema";
+import type { ComparisonResult, StreamMessage, SummarizedEvent } from "@/lib/schema";
+import ComparePicker from "./ComparePicker";
 import ResultView, { type ResultMeta } from "./ResultView";
+import SavePanel from "./SavePanel";
 
 type Status =
   | { kind: "idle" }
@@ -25,6 +27,8 @@ export default function UploadForm() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [events, setEvents] = useState<SummarizedEvent[]>([]);
   const [meta, setMeta] = useState<ResultMeta | null>(null);
+  const [comparison, setComparison] = useState<ComparisonResult | null>(null);
+  const [savedCount, setSavedCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   const busy = status.kind === "reading" || status.kind === "summarizing";
@@ -36,6 +40,7 @@ export default function UploadForm() {
 
     setEvents([]);
     setMeta(null);
+    setComparison(null);
 
     // 1) 파일 종류·크기 확인
     if (!isPdf(file)) {
@@ -174,6 +179,7 @@ export default function UploadForm() {
               setStatus({ kind: "idle" });
               setEvents([]);
               setMeta(null);
+              setComparison(null);
             }}
             className="block w-full text-sm file:mr-4 file:rounded-full file:border-0 file:bg-black file:px-4 file:py-2 file:text-white dark:file:bg-zinc-50 dark:file:text-black"
           />
@@ -214,7 +220,30 @@ export default function UploadForm() {
       </form>
 
       {(events.length > 0 || status.kind === "summarizing" || status.kind === "done") && (
-        <ResultView events={events} meta={meta} finished={status.kind !== "summarizing"} />
+        <ResultView
+          events={events}
+          meta={meta}
+          finished={status.kind !== "summarizing"}
+          comparison={comparison}
+        />
+      )}
+
+      {status.kind === "done" && events.length > 0 && (
+        <section className="mt-8 flex flex-col gap-6 border-t border-zinc-200 pt-6 dark:border-zinc-800" aria-label="저장과 비교">
+          <SavePanel
+            key={`${meta?.date ?? ""}|${meta?.edition ?? ""}`}
+            events={events}
+            defaultDate={meta?.date ?? null}
+            defaultEdition={meta?.edition ?? null}
+            onSaved={() => setSavedCount((c) => c + 1)}
+          />
+          <ComparePicker
+            currentEvents={events}
+            refreshKey={savedCount}
+            comparison={comparison}
+            onResult={setComparison}
+          />
+        </section>
       )}
     </>
   );

@@ -96,3 +96,50 @@ export const SUMMARY_SCHEMA = {
   required: ["title", "summary", "views"],
   additionalProperties: false,
 } as const;
+
+/** 비교할 때 AI에 보내는 사건 요약본 (기사 원문은 보내지 않는다) */
+export type CompactEvent = {
+  id: number;
+  title: string;
+  summary: string;
+  outlets: string[];
+};
+
+/** 지금 사건 하나를 저장된 기록과 비교한 결과. previousId가 null이면 새로 등장한 사건이다. */
+export type EventComparison = {
+  currentId: number;
+  previousId: number | null;
+  /** 이어지는 사건이면 달라진 점 한 문장, 새로 등장이면 빈 글자 */
+  change: string;
+};
+
+/** 비교 결과 전체 */
+export type ComparisonResult = {
+  /** 불러온 기록의 이름표 (예: "2026-10-14 조간") */
+  previousLabel: string;
+  items: EventComparison[];
+  /** 불러온 기록에는 있었지만 지금 결과에는 없는 사건 */
+  vanished: { id: number; title: string }[];
+};
+
+/** AI에게 요구하는 출력 모양: 지금 사건마다 이전 기록의 같은 사건 번호(없으면 null)와 달라진 점 */
+export const COMPARE_SCHEMA = {
+  type: "object",
+  properties: {
+    results: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          currentId: { type: "integer" },
+          previousId: { type: ["integer", "null"] },
+          change: { type: "string" },
+        },
+        required: ["currentId", "previousId", "change"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["results"],
+  additionalProperties: false,
+} as const;

@@ -1,6 +1,6 @@
 // Design Ref: §1.3 — 사건 카드 하나: 제목, 5문장 이내 요약, 보도사별 경향(긍정/부정/중립으로 묶음, 출처 포함), 다룬 곳.
 // AI가 만든 글은 모두 {글자} 방식으로만 그린다 (HTML로 해석하지 않음, 보안 점검 7번).
-import { STANCES, type OutletView, type Stance, type SummarizedEvent } from "@/lib/schema";
+import { STANCES, type EventComparison, type OutletView, type Stance, type SummarizedEvent } from "@/lib/schema";
 
 /** 태도 이름표. 색에만 기대지 않도록 글자(긍정/부정/중립)와 기호를 함께 쓴다. */
 const STANCE_STYLE: Record<Stance, { mark: string; className: string }> = {
@@ -9,7 +9,14 @@ const STANCE_STYLE: Record<Stance, { mark: string; className: string }> = {
   중립: { mark: "·", className: "text-zinc-600 dark:text-zinc-400" },
 };
 
-export default function EventCard({ event }: { event: SummarizedEvent }) {
+export default function EventCard({
+  event,
+  comparison,
+}: {
+  event: SummarizedEvent;
+  /** [비교 불러오기]를 눌러 비교했을 때만 들어온다 */
+  comparison?: EventComparison;
+}) {
   const outlets = new Set(event.coverage.map((c) => c.outlet));
 
   const groups = STANCES.map((stance) => ({
@@ -19,9 +26,24 @@ export default function EventCard({ event }: { event: SummarizedEvent }) {
 
   return (
     <article className="rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
+      {comparison && (
+        <p className="mb-2 text-xs font-semibold">
+          {comparison.previousId === null ? (
+            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800 dark:bg-sky-950 dark:text-sky-300">새로 등장</span>
+          ) : (
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-violet-800 dark:bg-violet-950 dark:text-violet-300">이어지는 사건</span>
+          )}
+        </p>
+      )}
       <h3 className="text-lg font-semibold leading-snug">{event.title || "(제목 없음)"}</h3>
 
       {event.summary && <p className="mt-3 leading-7">{event.summary}</p>}
+
+      {comparison && comparison.previousId !== null && comparison.change && (
+        <p className="mt-3 rounded bg-violet-50 px-3 py-2 text-sm dark:bg-violet-950/40">
+          <span className="font-medium">달라진 점:</span> {comparison.change}
+        </p>
+      )}
 
       <div className="mt-4">
         <h4 className="text-sm font-medium text-zinc-500">보도사별 경향</h4>
