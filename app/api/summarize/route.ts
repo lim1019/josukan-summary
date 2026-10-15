@@ -3,7 +3,7 @@
 // 이 길은 proxy.ts(접속 암호·속도 제한)를 먼저 통과해야 도착한다.
 // 요약(AI 호출)은 PLAN 작업 5~8에서 이 자리에 이어 붙인다.
 import { NextResponse } from "next/server";
-import { EDITIONS, LIMITS, type Edition } from "@/lib/limits";
+import { LIMITS } from "@/lib/limits";
 
 function fail(status: number, message: string) {
   return NextResponse.json({ error: message }, { status });
@@ -25,19 +25,7 @@ export async function POST(request: Request) {
     return fail(400, "요청 형식이 올바르지 않아요.");
   }
 
-  // 회차: 조간 또는 석간만
-  const edition = body.edition;
-  if (typeof edition !== "string" || !EDITIONS.includes(edition as Edition)) {
-    return fail(400, "조간 또는 석간을 골라 주세요.");
-  }
-
-  // 날짜: YYYY-MM-DD 모양만
-  const date = body.date;
-  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return fail(400, "날짜 형식이 올바르지 않아요.");
-  }
-
-  // 쪽별 글자: 모양과 상한을 서버에서도 한 번 더 확인한다 (화면 검사는 우회될 수 있음)
+  // 쪽별 글자 (회차·날짜는 받지 않는다: 저장할 때 브라우저에서 고른다, DESIGN §1.3): 모양과 상한을 서버에서도 한 번 더 확인한다 (화면 검사는 우회될 수 있음)
   const pages = body.pages;
   if (!Array.isArray(pages) || pages.length === 0) {
     return fail(400, "읽을 쪽이 없어요.");
@@ -69,8 +57,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
-    edition,
-    date,
     pageCount: pages.length,
     charCount: totalChars,
   });
