@@ -29,7 +29,7 @@ function getServerSnapshot(): string {
 
 export type PastKey = { date: string; edition: Edition };
 
-type Item = { date: string; edition: Edition; eventCount: number };
+type Item = { date: string; edition: Edition };
 
 export default function PastSummaries({
   active,
@@ -47,7 +47,7 @@ export default function PastSummaries({
     return snapshot.split(",").flatMap((text) => {
       const [date, edition] = text.split(":") as [string, Edition];
       const record = loadSaved(date, edition);
-      return record ? [{ date, edition, eventCount: record.events.length }] : [];
+      return record ? [{ date, edition }] : [];
     });
   }, [snapshot]);
 
@@ -139,7 +139,7 @@ export default function PastSummaries({
           >
             {days.map((i) => (
               <option key={i.date} value={i.date.slice(8, 10)}>
-                {Number(i.date.slice(8, 10))}일 (사건 {i.eventCount}개)
+                {Number(i.date.slice(8, 10))}일
               </option>
             ))}
           </select>
