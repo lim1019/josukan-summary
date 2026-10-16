@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 조석간 요약
 
-## Getting Started
+재정경제부 관련 **조간·석간 신문 스크랩 PDF**를 올리면, 같은 사건을 다룬 기사끼리 묶어 **사건별로 요약**하고, 그 사건을 **보도사마다 어떻게 다뤘는지**(긍정·부정·중립)를 한눈에 보여주는 웹 앱입니다. 하루 두 번, 수십 쪽짜리 스크랩을 읽던 시간을 줄이려고 만들었습니다.
 
-First, run the development server:
+> 동향 파악용 도구입니다. 신문 기사 같은 공개 자료를 대상으로 하며, AI가 만든 요약·분류는 틀릴 수 있으니 중요한 판단 전에는 원문을 확인하세요.
+
+## 주요 기능
+
+- **사건별 요약** — 같은 사건의 기사를 묶어, 견해 없이 객관적인 사실만 5문장 이내로 요약합니다.
+- **보도사별 반응** — 보도사마다 한 줄씩, 긍정·부정·중립으로 묶어 보여줍니다. 판단 근거가 된 기사 속 표현은 **굵게** 표시합니다. 한 곳만 보도한 사건도 그 보도사의 경향을 보여줍니다.
+- **다룬 곳 표시** — 사건마다 `PDF 2쪽 한빛일보`처럼 몇 쪽에 어느 보도사가 다뤘는지 알려 줍니다.
+- **자동 저장과 과거 흐름 비교** — 요약이 끝나면 PDF 머리줄의 날짜·회차로 이 브라우저에 자동 저장합니다. 최근 14일 기록에서 이어지는 사건을 AI가 찾아, 카드의 **[과거 흐름 비교]** 버튼으로 달라진 점과 날짜별 흐름을 볼 수 있습니다. 더 예전 기록까지 찾는 것도 요청할 수 있습니다.
+- **과거 자료 찾기** — 첫 화면의 "2. 과거 자료 찾기"에서 회차(조간/석간)와 년·월·일을 골라 저장된 요약을 다시 엽니다.
+
+## 이렇게 씁니다
+
+1. **1. PDF 파일 올리기**에서 스크랩 PDF를 고르고 **요약 시작**을 누릅니다.
+2. 끝난 사건부터 카드로 나타납니다. 요약이 끝나면 자동 저장됩니다.
+3. 이어지는 사건 카드의 **과거 흐름 비교**를 눌러 과거와 비교합니다.
+4. **2. 과거 자료 찾기**에서 저장된 과거 요약을 다시 열어 봅니다.
+
+## 개인정보와 데이터
+
+- PDF 파일은 **브라우저 안에서만** 글자로 바꾸며, 서버로 보내지 않습니다. 서버로는 뽑은 **글자만** 보내 요약합니다.
+- 서버에는 아무것도 저장하지 않습니다. 요약 결과는 사용자의 **브라우저에만** 저장되고, 화면에서 언제든 모두 지울 수 있습니다.
+- 요약을 위해 기사 글자가 OpenAI API로 전송됩니다 (요청 내용을 OpenAI 쪽에 저장하지 않도록 `store: false`로 호출합니다).
+
+## 직접 실행하기
+
+필요한 것: Node.js 22 이상, OpenAI API 키
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+프로젝트 폴더에 `.env` 파일을 만들고 키를 넣습니다. (`.env`는 git에 올라가지 않습니다.)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+OPENAI_API_KEY=여기에_발급받은_키
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev      # 개발 서버: http://localhost:3000
+npm run build    # 배포용 빌드
+npm run lint     # 코드 검사
+```
 
-## Learn More
+사용하는 모델은 `lib/ai.ts` 맨 위의 `MODEL` 한 줄에서 바꿀 수 있습니다.
 
-To learn more about Next.js, take a look at the following resources:
+> 주의: 이 앱을 인터넷에 공개하면 누구나 요약을 실행할 수 있고, 그때마다 본인의 OpenAI 크레딧이 사용됩니다. 서버 입구에 속도 제한(1분에 10번)과 입력 상한(120쪽, 30만 글자, 사건 30개)만 있으니, OpenAI 대시보드에서 **월 사용 한도**를 꼭 설정하세요.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 기술 스택
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- [Next.js](https://nextjs.org) 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4
+- [PDF.js](https://mozilla.github.io/pdf.js/) (`pdfjs-dist`) — 브라우저에서 PDF 글자 추출
+- [OpenAI API](https://platform.openai.com) (`openai`) — 사건 묶기, 요약, 보도사별 경향, 이어지는 사건 찾기
+- 배포: [Vercel](https://vercel.com)
 
-## Deploy on Vercel
+## 폴더 구조
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+app/
+├─ page.tsx                첫 화면 (1. PDF 올리기 / 2. 과거 자료 찾기)
+├─ _components/            화면 부품 (업로드·사건 카드·과거 요약 선택 등)
+├─ api/summarize/          글자 → 사건·요약 (스트리밍)
+├─ api/flow/               지금 사건 + 최근 기록 → 이어지는 사건 찾기
+└─ dev/                    개발용 화면 (배포 환경에서는 열리지 않음)
+lib/
+├─ pdf.ts                  PDF → 쪽별 글자 (브라우저)
+├─ articles.ts             기사 나누기 (머리줄 기준)
+├─ pipeline.ts             사건 묶기·요약·이어지는 사건 찾기 흐름
+├─ rules.ts                AI 결과 규칙 검사 (문장 수, 출처, 근거 표현 등)
+├─ ai.ts                   OpenAI 호출 (서버 전용)
+├─ storage.ts · flow.ts    브라우저 저장소와 흐름(타임라인)
+proxy.ts                   /api 입구: 요청 모양 검사·속도 제한
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 문서
+
+기획·설계 문서가 함께 들어 있습니다.
+
+- [PRD.md](PRD.md) — 기획서 (왜, 누구를 위해, 무엇을)
+- [PLAN.md](PLAN.md) — 구현 계획과 성공 기준
+- [DESIGN.md](DESIGN.md) — 화면 구성, 데이터 흐름, 기술 선택
+- [CHECK.md](CHECK.md) — 점검 결과 (성공 기준·설계 차이·보안)
+
+## 한계
+
+- 스크랩의 기사 머리줄(예: `한빛일보 2026. 10. 15.(목) 조간 · 3면 경제`)을 기준으로 기사를 나눕니다. 다른 모양의 스크랩에서는 기사 나누기가 틀릴 수 있습니다.
+- 글자가 없는 스캔본 PDF는 읽지 못합니다.
+- 사건 묶기, 긍정·부정·중립 분류, 이어지는 사건 찾기는 AI의 판단이라 오류가 있을 수 있으며, 정확도를 정량적으로 측정하지는 않았습니다.
+- 저장은 각자의 브라우저에만 되므로, 브라우저나 기기를 바꾸면 기록이 이어지지 않습니다.

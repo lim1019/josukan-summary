@@ -1,0 +1,7 @@
+# Vercel로 올릴 때 제외할 파일 (비밀 값과 작업 기록이 배포 서버로 올라가지 않게 한다)
+.env*
+.bkit
+samples
+node_modules
+.next
+logo.png

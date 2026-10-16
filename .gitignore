@@ -42,3 +42,6 @@ next-env.d.ts
 
 # bkit 플러그인 작업 기록
 /.bkit/
+
+# 시험용 샘플 PDF (공개 저장소에 올리지 않는다)
+/samples/

@@ -16,7 +16,8 @@ export default function Home() {
 
         <UploadForm />
 
-        {/* 개발 중에만 쓰는 임시 도구 링크. app/dev를 지울 때 이 링크들도 함께 지운다. */}
+        {/* 개발 중에만 쓰는 임시 도구 링크. 운영(배포)에서는 보이지 않는다. */}
+        {process.env.NODE_ENV !== "production" && (
         <div className="flex flex-col gap-1">
           <Link
             href="/dev/demo"
@@ -31,6 +32,7 @@ export default function Home() {
             개발용: PDF 구조 확인 도구
           </Link>
         </div>
+        )}
       </main>
     </div>
   );
