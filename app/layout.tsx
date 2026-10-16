@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "조석간 요약",
+  title: "조·석간 요약",
   description: "재정경제부 관련 조간·석간 신문 스크랩을 사건별로 묶어 요약합니다.",
 };
 
