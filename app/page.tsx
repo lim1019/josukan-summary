@@ -16,13 +16,21 @@ export default function Home() {
 
         <UploadForm />
 
-        {/* 개발 중에만 쓰는 임시 도구 링크. /dev/pdf-check를 지울 때 이 링크도 함께 지운다. */}
-        <Link
-          href="/dev/pdf-check"
-          className="text-sm text-zinc-500 underline underline-offset-4 hover:text-black dark:hover:text-zinc-50"
-        >
-          개발용: PDF 구조 확인 도구
-        </Link>
+        {/* 개발 중에만 쓰는 임시 도구 링크. app/dev를 지울 때 이 링크들도 함께 지운다. */}
+        <div className="flex flex-col gap-1">
+          <Link
+            href="/dev/demo"
+            className="text-sm text-zinc-500 underline underline-offset-4 hover:text-black dark:hover:text-zinc-50"
+          >
+            개발용: 결과 화면 미리보기 (가상 데이터)
+          </Link>
+          <Link
+            href="/dev/pdf-check"
+            className="text-sm text-zinc-500 underline underline-offset-4 hover:text-black dark:hover:text-zinc-50"
+          >
+            개발용: PDF 구조 확인 도구
+          </Link>
+        </div>
       </main>
     </div>
   );
