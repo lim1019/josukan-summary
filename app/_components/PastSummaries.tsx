@@ -51,17 +51,19 @@ export default function PastSummaries({
     });
   }, [snapshot]);
 
-  if (items.length === 0) {
-    return (
-      <p className="max-w-xl text-sm text-zinc-600 dark:text-zinc-400">
-        저장된 과거 요약이 아직 없어요. PDF를 요약하면 날짜·회차별로 자동 저장되고, 여기서 회차와 날짜를 골라 다시 찾아볼 수 있어요.
-      </p>
-    );
-  }
+  // 저장된 기록이 없어도 선택창은 보여준다 (고를 값이 없어 비활성)
+  const empty = items.length === 0;
 
   // 고른 값이 목록에 있으면 그것을, 없으면 열려 있는 요약을, 그것도 없으면 가장 최근 기록을 쓴다
   const exists = (k: PastKey | null) => k !== null && items.some((i) => i.edition === k.edition && i.date === k.date);
-  const selected: PastKey = exists(pick) ? pick! : exists(active) ? active! : { date: items[0]!.date, edition: items[0]!.edition };
+  // 저장된 기록이 하나도 없으면 빈 선택창을 보여준다 (고를 수 있는 값이 없어 비활성)
+  const selected: PastKey = exists(pick)
+    ? pick!
+    : exists(active)
+      ? active!
+      : items[0]
+        ? { date: items[0].date, edition: items[0].edition }
+        : { date: "", edition: "조간" };
   const datesForEdition = items.filter((i) => i.edition === selected.edition); // 최근 날짜가 먼저
   const [year = "", month = "", day = ""] = selected.date.split("-");
 
@@ -78,6 +80,14 @@ export default function PastSummaries({
 
   return (
     <section className="flex max-w-xl flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800" aria-label="과거 자료 찾기">
+      {empty ? (
+        <p className="text-sm text-zinc-600 dark:text-zinc-400" role="status">
+          이 주소에는 저장된 과거 요약이 아직 없어요. PDF를 요약하면 날짜·회차별로 자동 저장되고, 그러면 여기서 고를 수 있어요.
+        </p>
+      ) : (
+        <p className="text-xs text-zinc-500">이 주소의 이 브라우저에 저장된 요약만 보여요.</p>
+      )}
+
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">회차</legend>
         <div className="flex items-center gap-4">
@@ -109,10 +119,12 @@ export default function PastSummaries({
         <div className="flex flex-wrap items-center gap-2">
           <select
             aria-label="년"
+            disabled={empty}
             value={year}
             onChange={(e) => pickLatestIn(`${e.target.value}-`)}
             className="rounded border border-zinc-300 bg-transparent px-2 py-1.5 text-sm dark:border-zinc-700"
           >
+            {empty && <option value="">년</option>}
             {years.map((y) => (
               <option key={y} value={y}>
                 {y}년
@@ -121,10 +133,12 @@ export default function PastSummaries({
           </select>
           <select
             aria-label="월"
+            disabled={empty}
             value={month}
             onChange={(e) => pickLatestIn(`${year}-${e.target.value}-`)}
             className="rounded border border-zinc-300 bg-transparent px-2 py-1.5 text-sm dark:border-zinc-700"
           >
+            {empty && <option value="">월</option>}
             {months.map((m) => (
               <option key={m} value={m}>
                 {Number(m)}월
@@ -133,10 +147,12 @@ export default function PastSummaries({
           </select>
           <select
             aria-label="일"
+            disabled={empty}
             value={day}
             onChange={(e) => setPick({ edition: selected.edition, date: `${year}-${month}-${e.target.value}` })}
             className="rounded border border-zinc-300 bg-transparent px-2 py-1.5 text-sm dark:border-zinc-700"
           >
+            {empty && <option value="">일</option>}
             {days.map((i) => (
               <option key={i.date} value={i.date.slice(8, 10)}>
                 {Number(i.date.slice(8, 10))}일
@@ -144,14 +160,15 @@ export default function PastSummaries({
             ))}
           </select>
         </div>
-        <p className="text-xs text-zinc-500">이 회차로 저장된 년·월·일만 나와요.</p>
+        {!empty && <p className="text-xs text-zinc-500">이 회차로 저장된 년·월·일만 나와요.</p>}
       </fieldset>
 
       <div>
         <button
           type="button"
+          disabled={empty}
           onClick={() => onOpen(selected)}
-          className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white dark:bg-zinc-50 dark:text-black"
+          className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-50 dark:text-black"
         >
           열기
         </button>
