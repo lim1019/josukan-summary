@@ -61,10 +61,10 @@ export type CheckedSummary = {
 /**
  * 사건 하나의 AI 답을 검사한다.
  * - 요약은 5문장 이내
- * - 보도사가 2곳 이상이면, 기사에 나온 보도사마다 한 줄씩 (빠지거나 중복되면 안 됨)
+ * - 기사에 나온 보도사마다 한 줄씩 (한 곳뿐이어도 그 한 곳, 빠지거나 중복되면 안 됨)
  * - 각 줄의 보도사·쪽수는 실제 기사에 있는 값이어야 하고, 한 줄에는 보도사 한 곳만 있어야 한다
  * - 태도(stance)는 긍정/부정/중립 중 하나
- * - 보도사가 한 곳뿐이면 비교할 상대가 없으므로 줄이 없다
+ * - 보도사가 한 곳뿐이어도 그 보도사의 경향 한 줄은 있어야 한다
  */
 export function checkSummary(
   raw: {
@@ -87,11 +87,6 @@ export function checkSummary(
 
   if (countSentences(summary) > MAX_SUMMARY_SENTENCES) {
     problems.push(`요약이 ${MAX_SUMMARY_SENTENCES}문장을 넘었어요`);
-  }
-
-  // 한 곳만 다룬 사건: 비교할 상대가 없다
-  if (outlets.size < 2) {
-    return { title, summary, views: [], problems };
   }
 
   const views: OutletView[] = [];

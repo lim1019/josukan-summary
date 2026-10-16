@@ -84,7 +84,9 @@ export const DEMO_EVENTS: SummarizedEvent[] = [
     title: "전세 사기 피해 지원 확대 법안, 국회 상임위 통과",
     summary:
       "전세 사기 피해자 지원을 늘리는 특별법 개정안이 국회 소관 상임위를 통과했다. 피해자 임시 거처 지원 기간이 늘어난다. 시민단체는 환영하면서도 보증금 회수 방안이 빠졌다고 아쉬워했다.",
-    views: [],
+    views: [
+      { outlet: "미래신문", page: 18, stance: "중립", text: "지원 기간 연장 내용을 전하며 시민단체의 ‘환영하면서도 아쉽다’는 반응을 함께 소개했다.", evidence: ["환영하면서도 아쉽다"] },
+    ],
     coverage: [{ outlet: "미래신문", page: 18 }],
     warnings: [],
   },

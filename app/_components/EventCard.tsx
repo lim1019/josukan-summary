@@ -72,10 +72,11 @@ export default function EventCard({
       {flow?.linked && <FlowCompare flow={flow} />}
 
       <div className="mt-4">
-        <h4 className="text-sm font-medium text-zinc-500">보도사별 경향</h4>
-        {outlets.size < 2 ? (
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">한 곳만 보도했어요.</p>
-        ) : groups.length === 0 ? (
+        <h4 className="text-sm font-medium text-zinc-500">
+          보도사별 경향
+          {outlets.size < 2 && <span className="ml-2 font-normal">(한 곳만 보도)</span>}
+        </h4>
+        {groups.length === 0 ? (
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">경향을 정리하지 못했어요.</p>
         ) : (
           <div className="mt-2 flex flex-col gap-3">

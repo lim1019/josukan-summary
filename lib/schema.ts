@@ -38,7 +38,7 @@ export type SummarizedEvent = {
   id: number;
   title: string;
   summary: string;
-  /** 보도사마다 한 줄씩 (보도사가 한 곳뿐이면 비어 있다) */
+  /** 보도사마다 한 줄씩 (보도사가 한 곳뿐이어도 그 보도사의 한 줄이 있다) */
   views: OutletView[];
   /** 이 사건을 다룬 곳 (보도사·쪽수) */
   coverage: { outlet: string; page: number }[];
