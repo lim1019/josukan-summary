@@ -5,6 +5,17 @@ import { STANCES, type SummarizedEvent } from "./schema";
 
 const PREFIX = "summary:";
 
+/** 저장·삭제가 일어나면 같은 화면의 목록이 다시 읽도록 알리는 신호 이름 */
+export const SAVED_CHANGE_EVENT = "summary-storage-change";
+
+function notifyChange(): void {
+  try {
+    window.dispatchEvent(new Event(SAVED_CHANGE_EVENT));
+  } catch {
+    // 알림을 보내지 못해도 저장 자체에는 영향이 없다
+  }
+}
+
 export type SavedRecord = {
   version: 1;
   date: string;
@@ -125,6 +136,7 @@ export function saveRecord(date: string, edition: Edition, events: SummarizedEve
   const record: SavedRecord = { version: 1, date, edition, savedAt: new Date().toISOString(), events };
   try {
     localStorage.setItem(storageKey(date, edition), JSON.stringify(record));
+    notifyChange();
     return { ok: true };
   } catch {
     return { ok: false };
@@ -154,5 +166,6 @@ export function clearAllSaved(): number {
   } catch {
     return removed;
   }
+  notifyChange();
   return removed;
 }

@@ -4,13 +4,14 @@
 // PDF는 브라우저 안에서 글자로 바꾸고, 글자만 서버(/api/summarize)로 보낸다. 서버는 끝난 사건부터 한 줄씩 보낸다.
 // 요약이 끝나면 PDF 머리줄의 날짜·회차로 자동 저장하고, 최근 14일 기록에서 이어지는 사건을 AI로 찾는다 (/api/flow).
 // Plan SC: PDF 원본은 서버로 보내지 않는다 (PRD 7번)
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { buildHistory, buildTimeline, DEFAULT_DAYS } from "@/lib/flow";
 import { EDITIONS, LIMITS, type Edition } from "@/lib/limits";
 import { extractPages } from "@/lib/pdf";
 import type { CompactEvent, FlowInfo, FlowMatch, StreamMessage, SummarizedEvent } from "@/lib/schema";
-import { hasSaved, isValidDate, saveRecord } from "@/lib/storage";
+import { hasSaved, isValidDate, loadSaved, saveRecord, type SavedRecord } from "@/lib/storage";
 import HistoryBar, { type HistoryNote } from "./HistoryBar";
+import PastSummaries, { type PastKey } from "./PastSummaries";
 import ResultView, { type ResultMeta } from "./ResultView";
 import SavePanel from "./SavePanel";
 
@@ -49,6 +50,8 @@ export default function UploadForm() {
   const [linking, setLinking] = useState(false);
   const [manualSave, setManualSave] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [mode, setMode] = useState<"upload" | "past">("upload");
+  const [viewing, setViewing] = useState<SavedRecord | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const busy = status.kind === "reading" || status.kind === "summarizing";
@@ -174,10 +177,25 @@ export default function UploadForm() {
     }
   }
 
+  /** 저장된 과거 요약을 연다. 서버·AI를 부르지 않고 이 브라우저의 기록만 읽는다. */
+  function openPast(key: PastKey) {
+    setViewing(loadSaved(key.date, key.edition));
+  }
+
+  // 과거 요약에서 이어지는 사건의 흐름 (저장돼 있는 연결을 따라 거슬러 올라간다). 연결이 없는 사건에는 배지를 달지 않는다.
+  const pastFlows = useMemo<Record<number, FlowInfo>>(() => {
+    const result: Record<number, FlowInfo> = {};
+    for (const e of viewing?.events ?? []) {
+      if (e.previous) result[e.id] = { linked: true, change: e.previous.change, steps: buildTimeline(e.previous) };
+    }
+    return result;
+  }, [viewing]);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!file) return;
 
+    setMode("upload");
     resetResult();
 
     // 1) 파일 종류·크기 확인
@@ -307,99 +325,169 @@ export default function UploadForm() {
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="flex max-w-xl flex-col gap-6" noValidate>
-        <div className="flex flex-col gap-2">
-          <label htmlFor="pdf-file" className="text-sm font-medium">
-            ① 스크랩 PDF
-          </label>
-          <input
-            id="pdf-file"
-            type="file"
-            accept="application/pdf,.pdf"
-            disabled={busy}
-            onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null);
-              setStatus({ kind: "idle" });
-              resetResult();
-            }}
-            className="block w-full text-sm file:mr-4 file:rounded-full file:border-0 file:bg-black file:px-4 file:py-2 file:text-white dark:file:bg-zinc-50 dark:file:text-black"
-          />
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="w-fit rounded-full bg-black px-6 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-50 dark:text-black"
-          >
-            ② 요약 시작
-          </button>
-          {status.kind === "summarizing" && (
-            <button
-              type="button"
-              onClick={() => abortRef.current?.abort()}
-              className="rounded-full border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700"
-            >
-              취소
-            </button>
-          )}
-        </div>
-
-        <div aria-live="polite">
-          {status.kind === "reading" && (
-            <p>
-              {status.total > 0 ? `PDF 읽는 중 (${status.done}/${status.total}쪽)` : "PDF 여는 중…"}
-            </p>
-          )}
-          {status.kind === "summarizing" && <p>{status.message}</p>}
-          {status.kind === "error" && (
-            <p className="text-red-600 dark:text-red-400" role="alert">
-              {status.message}
-            </p>
-          )}
-        </div>
-      </form>
-
-      {(events.length > 0 || status.kind === "summarizing" || status.kind === "done") && (
-        <ResultView events={events} meta={meta} finished={status.kind !== "summarizing"}
-          flows={flows}
-        />
-      )}
-
-      {status.kind === "done" && events.length > 0 && (
-        <section
-          className="mt-8 flex flex-col gap-6 border-t border-zinc-200 pt-6 dark:border-zinc-800"
-          aria-label="저장과 흐름"
+      <div role="tablist" aria-label="시작하기" className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          role="tab"
+          id="tab-upload"
+          aria-selected={mode === "upload"}
+          aria-controls="panel-upload"
+          onClick={() => setMode("upload")}
+          className={`rounded-full border px-4 py-2 text-sm font-medium ${
+              mode === "upload"
+                ? "border-black bg-black text-white dark:border-zinc-50 dark:bg-zinc-50 dark:text-black"
+                : "border-zinc-300 dark:border-zinc-700"
+            }`}
         >
-          {linking && (
-            <p className="text-sm" role="status">
-              저장된 최근 기록에서 이어지는 사건을 찾는 중…
-            </p>
-          )}
-          {manualSave && (
-            <SavePanel
-              key={`${meta?.date ?? ""}|${meta?.edition ?? ""}`}
-              events={events}
-              defaultDate={meta?.date ?? null}
-              defaultEdition={meta?.edition ?? null}
-              onSaved={() => setSavedCount((c) => c + 1)}
+          1. PDF 파일 올리기
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-past"
+          aria-selected={mode === "past"}
+          aria-controls="panel-past"
+          onClick={() => setMode("past")}
+          className={`rounded-full border px-4 py-2 text-sm font-medium ${
+              mode === "past"
+                ? "border-black bg-black text-white dark:border-zinc-50 dark:bg-zinc-50 dark:text-black"
+                : "border-zinc-300 dark:border-zinc-700"
+            }`}
+        >
+          2. 과거 자료 찾기
+        </button>
+      </div>
+
+      <div role="tabpanel" id="panel-upload" aria-labelledby="tab-upload" hidden={mode !== "upload"} className="flex flex-col gap-0">
+        <form onSubmit={handleSubmit} className="flex max-w-xl flex-col gap-6" noValidate>
+          <div className="flex flex-col gap-2">
+            <label htmlFor="pdf-file" className="text-sm font-medium">
+              스크랩 PDF
+            </label>
+            <input
+              id="pdf-file"
+              type="file"
+              accept="application/pdf,.pdf"
+              disabled={busy}
+              onChange={(e) => {
+                setFile(e.target.files?.[0] ?? null);
+                setStatus({ kind: "idle" });
+                resetResult();
+              }}
+              className="block w-full text-sm file:mr-4 file:rounded-full file:border-0 file:bg-black file:px-4 file:py-2 file:text-white dark:file:bg-zinc-50 dark:file:text-black"
             />
-          )}
-          <HistoryBar
-            refreshKey={savedCount}
-            note={note}
-            olderCount={olderCount}
-            busy={linking}
-            onSearchOlder={() => void linkAndSave(events, meta, null)}
-            onCleared={() => {
-              setSavedCount((c) => c + 1);
-              setFlows({});
-              setOlderCount(0);
-              setNote({ kind: "info", message: "저장된 기록을 모두 지웠어요. 이 요약은 저장되어 있지 않아요." });
-            }}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="w-fit rounded-full bg-black px-6 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-50 dark:text-black"
+            >
+              요약 시작
+            </button>
+            {status.kind === "summarizing" && (
+              <button
+                type="button"
+                onClick={() => abortRef.current?.abort()}
+                className="rounded-full border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700"
+              >
+                취소
+              </button>
+            )}
+          </div>
+
+          <div aria-live="polite">
+            {status.kind === "reading" && (
+              <p>
+                {status.total > 0 ? `PDF 읽는 중 (${status.done}/${status.total}쪽)` : "PDF 여는 중…"}
+              </p>
+            )}
+            {status.kind === "summarizing" && <p>{status.message}</p>}
+            {status.kind === "error" && (
+              <p className="text-red-600 dark:text-red-400" role="alert">
+                {status.message}
+              </p>
+            )}
+          </div>
+        </form>
+
+        {(events.length > 0 || status.kind === "summarizing" || status.kind === "done") && (
+          <ResultView events={events} meta={meta} finished={status.kind !== "summarizing"}
+            flows={flows}
           />
-        </section>
-      )}
+        )}
+
+        {status.kind === "done" && events.length > 0 && (
+          <section
+            className="mt-8 flex flex-col gap-6 border-t border-zinc-200 pt-6 dark:border-zinc-800"
+            aria-label="저장과 흐름"
+          >
+            {linking && (
+              <p className="text-sm" role="status">
+                저장된 최근 기록에서 이어지는 사건을 찾는 중…
+              </p>
+            )}
+            {manualSave && (
+              <SavePanel
+                key={`${meta?.date ?? ""}|${meta?.edition ?? ""}`}
+                events={events}
+                defaultDate={meta?.date ?? null}
+                defaultEdition={meta?.edition ?? null}
+                onSaved={() => setSavedCount((c) => c + 1)}
+              />
+            )}
+            <HistoryBar
+              refreshKey={savedCount}
+              note={note}
+              olderCount={olderCount}
+              busy={linking}
+              onSearchOlder={() => void linkAndSave(events, meta, null)}
+              onCleared={() => {
+                setSavedCount((c) => c + 1);
+                setFlows({});
+                setOlderCount(0);
+                setNote({ kind: "info", message: "저장된 기록을 모두 지웠어요. 이 요약은 저장되어 있지 않아요." });
+              }}
+            />
+          </section>
+        )}
+      </div>
+
+      <div role="tabpanel" id="panel-past" aria-labelledby="tab-past" hidden={mode !== "past"} className="flex flex-col gap-4">
+        <PastSummaries
+          active={viewing ? { date: viewing.date, edition: viewing.edition } : null}
+          onOpen={openPast}
+        />
+
+        {viewing && (
+          <>
+            <div className="flex flex-wrap items-center gap-3 rounded-lg bg-zinc-50 px-4 py-3 text-sm dark:bg-zinc-900" role="status">
+              <span>
+                저장된 요약을 보고 있어요: <strong>{viewing.date} {viewing.edition}</strong> (저장 {viewing.savedAt.slice(0, 10)})
+              </span>
+              <button
+                type="button"
+                onClick={() => setViewing(null)}
+                className="rounded-full border border-zinc-300 px-3 py-1 dark:border-zinc-700"
+              >
+                닫기
+              </button>
+            </div>
+            <ResultView
+              events={viewing.events}
+              meta={{
+                edition: viewing.edition,
+                date: viewing.date,
+                articleCount: viewing.events.reduce((sum, e) => sum + e.coverage.length, 0),
+              }}
+              finished
+              flows={pastFlows}
+              flowLastLabel={`이 요약 (${viewing.date} ${viewing.edition})`}
+            />
+          </>
+        )}
+      </div>
     </>
   );
 }

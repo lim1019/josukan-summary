@@ -42,10 +42,13 @@ function BoldEvidence({ text, phrases }: { text: string; phrases: string[] }) {
 export default function EventCard({
   event,
   flow,
+  flowLastLabel,
 }: {
   event: SummarizedEvent;
   /** 저장된 기록에서 이어지는 사건을 찾은 결과. 아직 못 찾았거나 비교할 기록이 없으면 없다 */
   flow?: FlowInfo;
+  /** 흐름의 마지막 줄 이름. 지금 만든 요약이면 "오늘 (이 요약)", 과거 요약을 열어 본 경우에는 그 요약의 날짜·회차 */
+  flowLastLabel?: string;
 }) {
   const outlets = new Set(event.coverage.map((c) => c.outlet));
 
@@ -69,7 +72,7 @@ export default function EventCard({
 
       {event.summary && <p className="mt-3 leading-7">{event.summary}</p>}
 
-      {flow?.linked && <FlowCompare flow={flow} />}
+      {flow?.linked && <FlowCompare flow={flow} lastLabel={flowLastLabel} />}
 
       <div className="mt-4">
         <h4 className="text-sm font-medium text-zinc-500">

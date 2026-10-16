@@ -6,7 +6,7 @@
 import { useState } from "react";
 import type { FlowInfo } from "@/lib/schema";
 
-export default function FlowCompare({ flow }: { flow: FlowInfo }) {
+export default function FlowCompare({ flow, lastLabel = "오늘 (이 요약)" }: { flow: FlowInfo; lastLabel?: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -36,7 +36,7 @@ export default function FlowCompare({ flow }: { flow: FlowInfo }) {
                     <span className="text-zinc-500">{step.label}</span> {step.title} <span aria-hidden="true">→</span>
                   </li>
                 ))}
-                <li className="font-medium">오늘 (이 요약)</li>
+                <li className="font-medium">{lastLabel}</li>
               </ol>
             </div>
           )}

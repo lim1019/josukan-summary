@@ -14,12 +14,15 @@ export default function ResultView({
   meta,
   finished,
   flows,
+  flowLastLabel,
 }: {
   events: SummarizedEvent[];
   meta: ResultMeta | null;
   finished: boolean;
   /** 사건 번호 → 흐름. 아직 찾지 못했거나 비교할 기록이 없으면 비어 있다 */
   flows: Record<number, FlowInfo>;
+  /** 흐름 마지막 줄 이름 (기본: "오늘 (이 요약)") */
+  flowLastLabel?: string;
 }) {
   const outletCount = (e: SummarizedEvent) => new Set(e.coverage.map((c) => c.outlet)).size;
   const sorted = [...events].sort((a, b) => outletCount(b) - outletCount(a) || a.id - b.id);
@@ -35,7 +38,7 @@ export default function ResultView({
       </h2>
       <div className="mt-4 flex flex-col gap-4">
         {sorted.map((event) => (
-          <EventCard key={event.id} event={event} flow={flows[event.id]} />
+          <EventCard key={event.id} event={event} flow={flows[event.id]} flowLastLabel={flowLastLabel} />
         ))}
       </div>
     </section>
