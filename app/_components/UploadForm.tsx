@@ -1,13 +1,16 @@
 "use client";
 
-// Design Ref: §1.1~1.3, §1.4, §2 단계 1~9 — PDF 올리기 + 요약 시작 + 진행 표시 + 사건 카드.
+// Design Ref: §1.1~1.3, §1.4, §2 단계 1~11 — PDF 올리기 + 요약 시작 + 진행 표시 + 사건 카드 + 자동 저장 + 이어지는 사건 찾기.
 // PDF는 브라우저 안에서 글자로 바꾸고, 글자만 서버(/api/summarize)로 보낸다. 서버는 끝난 사건부터 한 줄씩 보낸다.
+// 요약이 끝나면 PDF 머리줄의 날짜·회차로 자동 저장하고, 최근 14일 기록에서 이어지는 사건을 AI로 찾는다 (/api/flow).
 // Plan SC: PDF 원본은 서버로 보내지 않는다 (PRD 7번)
 import { useRef, useState } from "react";
+import { buildHistory, buildTimeline, DEFAULT_DAYS } from "@/lib/flow";
+import { EDITIONS, LIMITS, type Edition } from "@/lib/limits";
 import { extractPages } from "@/lib/pdf";
-import { LIMITS } from "@/lib/limits";
-import type { ComparisonResult, StreamMessage, SummarizedEvent } from "@/lib/schema";
-import ComparePicker from "./ComparePicker";
+import type { CompactEvent, FlowInfo, FlowMatch, StreamMessage, SummarizedEvent } from "@/lib/schema";
+import { hasSaved, isValidDate, saveRecord } from "@/lib/storage";
+import HistoryBar, { type HistoryNote } from "./HistoryBar";
 import ResultView, { type ResultMeta } from "./ResultView";
 import SavePanel from "./SavePanel";
 
@@ -22,25 +25,160 @@ function isPdf(file: File): boolean {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 }
 
+function isEdition(value: string): value is Edition {
+  return (EDITIONS as readonly string[]).includes(value);
+}
+
+function toCompact(events: SummarizedEvent[]): CompactEvent[] {
+  return events.map((e) => ({
+    id: e.id,
+    title: e.title,
+    summary: e.summary,
+    outlets: [...new Set(e.coverage.map((c) => c.outlet))],
+  }));
+}
+
 export default function UploadForm() {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [events, setEvents] = useState<SummarizedEvent[]>([]);
   const [meta, setMeta] = useState<ResultMeta | null>(null);
-  const [comparison, setComparison] = useState<ComparisonResult | null>(null);
+  const [flows, setFlows] = useState<Record<number, FlowInfo>>({});
+  const [note, setNote] = useState<HistoryNote>(null);
+  const [olderCount, setOlderCount] = useState(0);
+  const [linking, setLinking] = useState(false);
+  const [manualSave, setManualSave] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   const busy = status.kind === "reading" || status.kind === "summarizing";
   const canSubmit = file !== null && !busy;
 
+  function resetResult() {
+    setEvents([]);
+    setMeta(null);
+    setFlows({});
+    setNote(null);
+    setOlderCount(0);
+    setManualSave(false);
+  }
+
+  /**
+   * 요약이 끝난 뒤: 최근 기록에서 이어지는 사건을 찾고, 그 연결과 함께 자동 저장한다.
+   * days가 null이면 14일보다 더 예전 기록까지 찾는다 ("더 예전 기록까지 찾기").
+   */
+  async function linkAndSave(base: SummarizedEvent[], m: ResultMeta | null, days: number | null) {
+    setNote(null);
+    const date = m?.date ?? "";
+    const editionText = m?.edition ?? "";
+
+    // 스크랩에서 날짜·회차를 읽지 못하면 이름표를 정할 수 없어서 자동 저장하지 않는다
+    if (!isValidDate(date) || !isEdition(editionText)) {
+      setManualSave(true);
+      setNote({
+        kind: "info",
+        message: "스크랩에서 날짜·회차를 읽지 못해 자동 저장하지 않았어요. 아래에서 직접 골라 저장하면 기록을 쌓을 수 있어요.",
+      });
+      return;
+    }
+    setManualSave(false);
+
+    const edition: Edition = editionText;
+    const overwrite = hasSaved(date, edition);
+    const plain: SummarizedEvent[] = base.map((e) => {
+      const copy = { ...e };
+      delete copy.previous;
+      return copy;
+    });
+
+    let linked: SummarizedEvent[] = plain;
+    let flowError: string | null = null;
+    let searched = false;
+
+    const history = buildHistory(date, edition, days);
+    setOlderCount(history.olderCount);
+
+    if (history.events.length > 0) {
+      searched = true;
+      setLinking(true);
+      try {
+        const response = await fetch("/api/flow", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ current: toCompact(plain), history: history.events }),
+        });
+        const data: unknown = await response.json().catch(() => null);
+        if (!response.ok || typeof data !== "object" || data === null || !("matches" in data)) {
+          flowError =
+            typeof data === "object" && data !== null && "error" in data
+              ? String((data as { error: unknown }).error)
+              : "이어지는 사건을 찾지 못했어요.";
+        } else {
+          const matches = (data as { matches: FlowMatch[] }).matches;
+          linked = plain.map((e) => {
+            const match = matches.find((x) => x.currentId === e.id);
+            const target = match?.previousRef != null ? history.refs.get(match.previousRef) : undefined;
+            return target
+              ? { ...e, previous: { date: target.date, edition: target.edition, eventId: target.eventId, change: match?.change ?? "" } }
+              : e;
+          });
+        }
+      } catch {
+        flowError = "서버에 연결하지 못해 이어지는 사건을 찾지 못했어요.";
+      }
+      setLinking(false);
+    }
+
+    // 자동 저장 (같은 날짜·회차가 있으면 덮어쓴다)
+    const saved = saveRecord(date, edition, linked);
+    setSavedCount((c) => c + 1);
+    setEvents(linked);
+
+    // 화면에 보여줄 흐름 (저장돼 있는 연결을 따라 거슬러 올라간다)
+    if (searched && !flowError) {
+      const next: Record<number, FlowInfo> = {};
+      for (const e of linked) {
+        next[e.id] = e.previous
+          ? { linked: true, change: e.previous.change, steps: buildTimeline(e.previous) }
+          : { linked: false, change: "", steps: [] };
+      }
+      setFlows(next);
+    } else {
+      setFlows({});
+    }
+
+    // 안내 문구
+    const label = `${date} ${edition}`;
+    if (!saved.ok) {
+      setNote({
+        kind: "error",
+        message: "자동 저장하지 못했어요 (브라우저 저장 공간을 확인해 주세요). 이 결과는 다음 요약의 흐름에 쓰이지 않아요.",
+      });
+    } else if (flowError) {
+      setNote({ kind: "error", message: `${flowError} 저장은 했어요 (${label}).` });
+    } else if (!searched) {
+      setNote({
+        kind: "ok",
+        message: `자동 저장했어요: ${label}${overwrite ? " (같은 날짜·회차 기록을 덮어썼어요)" : ""}. ${
+          days === null ? "더 예전 기록이 없어요." : "최근 14일 안에 이전 기록이 없어서, 내일부터 이어지는 사건을 찾아 보여드려요."
+        }`,
+      });
+    } else {
+      const linkedCount = linked.filter((e) => e.previous).length;
+      setNote({
+        kind: "ok",
+        message: `자동 저장했어요: ${label}${overwrite ? " (같은 날짜·회차 기록을 덮어썼어요)" : ""}. 이어지는 사건 ${linkedCount}개, 새로 등장 ${linked.length - linkedCount}개 (${
+          days === null ? "저장된 모든 기록" : `최근 ${DEFAULT_DAYS}일`
+        } 기준)`,
+      });
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!file) return;
 
-    setEvents([]);
-    setMeta(null);
-    setComparison(null);
+    resetResult();
 
     // 1) 파일 종류·크기 확인
     if (!isPdf(file)) {
@@ -89,12 +227,14 @@ export default function UploadForm() {
     setStatus({ kind: "summarizing", message: "서버로 보내는 중…" });
 
     const collected: SummarizedEvent[] = [];
+    let metaLocal: ResultMeta | null = null;
     let finished = false;
 
     const handleMessage = (message: StreamMessage) => {
       switch (message.type) {
         case "meta":
-          setMeta({ edition: message.edition, date: message.date, articleCount: message.articleCount });
+          metaLocal = { edition: message.edition, date: message.date, articleCount: message.articleCount };
+          setMeta(metaLocal);
           break;
         case "progress":
           setStatus({ kind: "summarizing", message: message.message });
@@ -150,6 +290,9 @@ export default function UploadForm() {
 
       if (!finished) {
         setStatus({ kind: "error", message: "서버 응답이 중간에 끊겼어요. 다시 시도해 주세요" });
+      } else if (collected.length > 0 && !controller.signal.aborted) {
+        // 요약이 정상으로 끝났을 때만: 이어지는 사건 찾기 + 자동 저장
+        await linkAndSave(collected, metaLocal, DEFAULT_DAYS);
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -177,9 +320,7 @@ export default function UploadForm() {
             onChange={(e) => {
               setFile(e.target.files?.[0] ?? null);
               setStatus({ kind: "idle" });
-              setEvents([]);
-              setMeta(null);
-              setComparison(null);
+              resetResult();
             }}
             className="block w-full text-sm file:mr-4 file:rounded-full file:border-0 file:bg-black file:px-4 file:py-2 file:text-white dark:file:bg-zinc-50 dark:file:text-black"
           />
@@ -220,28 +361,40 @@ export default function UploadForm() {
       </form>
 
       {(events.length > 0 || status.kind === "summarizing" || status.kind === "done") && (
-        <ResultView
-          events={events}
-          meta={meta}
-          finished={status.kind !== "summarizing"}
-          comparison={comparison}
-        />
+        <ResultView events={events} meta={meta} finished={status.kind !== "summarizing"} flows={flows} />
       )}
 
       {status.kind === "done" && events.length > 0 && (
-        <section className="mt-8 flex flex-col gap-6 border-t border-zinc-200 pt-6 dark:border-zinc-800" aria-label="저장과 비교">
-          <SavePanel
-            key={`${meta?.date ?? ""}|${meta?.edition ?? ""}`}
-            events={events}
-            defaultDate={meta?.date ?? null}
-            defaultEdition={meta?.edition ?? null}
-            onSaved={() => setSavedCount((c) => c + 1)}
-          />
-          <ComparePicker
-            currentEvents={events}
+        <section
+          className="mt-8 flex flex-col gap-6 border-t border-zinc-200 pt-6 dark:border-zinc-800"
+          aria-label="저장과 흐름"
+        >
+          {linking && (
+            <p className="text-sm" role="status">
+              저장된 최근 기록에서 이어지는 사건을 찾는 중…
+            </p>
+          )}
+          {manualSave && (
+            <SavePanel
+              key={`${meta?.date ?? ""}|${meta?.edition ?? ""}`}
+              events={events}
+              defaultDate={meta?.date ?? null}
+              defaultEdition={meta?.edition ?? null}
+              onSaved={() => setSavedCount((c) => c + 1)}
+            />
+          )}
+          <HistoryBar
             refreshKey={savedCount}
-            comparison={comparison}
-            onResult={setComparison}
+            note={note}
+            olderCount={olderCount}
+            busy={linking}
+            onSearchOlder={() => void linkAndSave(events, meta, null)}
+            onCleared={() => {
+              setSavedCount((c) => c + 1);
+              setFlows({});
+              setOlderCount(0);
+              setNote({ kind: "info", message: "저장된 기록을 모두 지웠어요. 이 요약은 저장되어 있지 않아요." });
+            }}
           />
         </section>
       )}

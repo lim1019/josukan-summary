@@ -24,6 +24,18 @@ export function isValidDate(date: string): boolean {
 }
 
 /** 저장소에서 읽은 값은 믿지 않고 모양을 확인한다 (보안 점검 7번) */
+function isEventLink(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const l = value as Record<string, unknown>;
+  return (
+    typeof l.date === "string" &&
+    isValidDate(l.date) &&
+    typeof l.edition === "string" &&
+    typeof l.eventId === "number" &&
+    typeof l.change === "string"
+  );
+}
+
 function isSummarizedEvent(value: unknown): value is SummarizedEvent {
   if (typeof value !== "object" || value === null) return false;
   const e = value as Record<string, unknown>;
@@ -32,6 +44,7 @@ function isSummarizedEvent(value: unknown): value is SummarizedEvent {
     typeof e.title === "string" &&
     typeof e.summary === "string" &&
     Array.isArray(e.warnings) &&
+    (e.previous === undefined || isEventLink(e.previous)) &&
     Array.isArray(e.coverage) &&
     e.coverage.every(
       (c) =>
@@ -116,4 +129,30 @@ export function saveRecord(date: string, edition: Edition, events: SummarizedEve
   } catch {
     return { ok: false };
   }
+}
+
+/** 저장된 기록을 모두 읽는다 (모양이 깨진 것은 무시) */
+export function loadAllSaved(): SavedRecord[] {
+  return listSaved()
+    .map((k) => loadSaved(k.date, k.edition))
+    .filter((r): r is SavedRecord => r !== null);
+}
+
+/** 저장된 요약 기록을 모두 지운다. 이 앱이 만든 "summary:" 기록만 지운다. */
+export function clearAllSaved(): number {
+  let removed = 0;
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(PREFIX)) keys.push(key);
+    }
+    for (const key of keys) {
+      localStorage.removeItem(key);
+      removed++;
+    }
+  } catch {
+    return removed;
+  }
+  return removed;
 }

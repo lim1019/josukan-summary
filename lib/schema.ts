@@ -44,6 +44,8 @@ export type SummarizedEvent = {
   coverage: { outlet: string; page: number }[];
   /** 규칙을 끝내 지키지 못한 부분이 있으면 사람이 읽을 수 있는 안내 */
   warnings: string[];
+  /** 이전 기록에서 이어지는 사건이면 그 연결 (저장할 때 함께 남는다) */
+  previous?: EventLink;
 };
 
 /** 서버가 브라우저로 한 줄씩 흘려보내는 소식 (NDJSON) */
@@ -108,25 +110,44 @@ export type CompactEvent = {
   outlets: string[];
 };
 
-/** 지금 사건 하나를 저장된 기록과 비교한 결과. previousId가 null이면 새로 등장한 사건이다. */
-export type EventComparison = {
-  currentId: number;
-  previousId: number | null;
-  /** 이어지는 사건이면 달라진 점 한 문장, 새로 등장이면 빈 글자 */
+/** 이전 기록의 어느 사건에서 이어지는지 (자동으로 찾아 저장한다) */
+export type EventLink = {
+  date: string;
+  edition: string;
+  eventId: number;
+  /** 이어지는 직전 사건과 비교해 달라진 점 한 문장 */
   change: string;
 };
 
-/** 비교 결과 전체 */
-export type ComparisonResult = {
-  /** 불러온 기록의 이름표 (예: "2026-10-14 조간") */
-  previousLabel: string;
-  items: EventComparison[];
-  /** 불러온 기록에는 있었지만 지금 결과에는 없는 사건 */
-  vanished: { id: number; title: string }[];
+/** 화면에 보여줄 한 사건의 흐름 */
+export type FlowInfo = {
+  /** true면 이전 기록에서 이어지는 사건, false면 새로 등장한 사건 */
+  linked: boolean;
+  /** 직전 사건과 비교해 달라진 점 (이어지는 사건일 때만) */
+  change: string;
+  /** 이어진 과거 사건들 (오래된 것부터) */
+  steps: { label: string; title: string }[];
 };
 
-/** AI에게 요구하는 출력 모양: 지금 사건마다 이전 기록의 같은 사건 번호(없으면 null)와 달라진 점 */
-export const COMPARE_SCHEMA = {
+/** 흐름을 찾을 때 AI에 보내는 과거 사건 (요약본만, 기사 원문은 아님) */
+export type HistoryEvent = {
+  /** 이번 요청 안에서만 쓰는 번호 */
+  ref: number;
+  /** 예: "2026-10-14 석간" */
+  label: string;
+  title: string;
+  summary: string;
+};
+
+/** 지금 사건 하나가 과거 사건 중 무엇에서 이어지는지 (없으면 previousRef가 null = 새로 등장) */
+export type FlowMatch = {
+  currentId: number;
+  previousRef: number | null;
+  change: string;
+};
+
+/** AI에게 요구하는 출력 모양 */
+export const FLOW_SCHEMA = {
   type: "object",
   properties: {
     results: {
@@ -135,10 +156,10 @@ export const COMPARE_SCHEMA = {
         type: "object",
         properties: {
           currentId: { type: "integer" },
-          previousId: { type: ["integer", "null"] },
+          previousRef: { type: ["integer", "null"] },
           change: { type: "string" },
         },
-        required: ["currentId", "previousId", "change"],
+        required: ["currentId", "previousRef", "change"],
         additionalProperties: false,
       },
     },
