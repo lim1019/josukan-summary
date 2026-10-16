@@ -1,6 +1,6 @@
 // 화면 미리보기용 가상 데이터. 보도사 이름, 기사 내용, 숫자는 모두 지어낸 것이며 실제 신문과 관계가 없다.
 // AI·저장소·서버를 쓰지 않고 결과 화면이 어떻게 보이는지만 확인하려는 임시 자료다 (app/dev 폴더와 함께 배포 전에 지운다).
-import type { Digest, FlowInfo, SummarizedEvent } from "@/lib/schema";
+import type { FlowInfo, SummarizedEvent } from "@/lib/schema";
 
 export const DEMO_META = { date: "2026-10-15", edition: "조간", articleCount: 18 };
 
@@ -114,16 +114,4 @@ export const DEMO_FLOWS: Record<number, FlowInfo> = {
   },
   4: { linked: false, change: "", steps: [] },
   5: { linked: false, change: "", steps: [] },
-};
-
-export const DEMO_DIGEST: Digest = {
-  overview:
-    "정부가 총지출 728조원 규모의 내년도 예산안을 확정한 가운데 경기 회복 기대와 재정 건전성·취약계층 지원 부족 우려가 엇갈렸다. 9월 소비자물가 상승률은 2.1%로 둔화됐고, 한국은행은 기준금리를 연 3.0%로 동결했다. 원·달러 환율은 1,380원대로 내렸고, 전세 사기 피해 지원 확대 법안은 상임위를 통과했다.",
-  highlights: [
-    { eventId: 1, text: "정부, 총지출 728조원 내년도 예산안 확정…성장 지원 기대와 재정 건전성 우려" },
-    { eventId: 2, text: "9월 소비자물가 2.1%로 둔화, 서비스 물가는 3.0%로 높은 수준" },
-    { eventId: 3, text: "한국은행 기준금리 연 3.0% 동결…연내 인하 가능성 주목" },
-    { eventId: 4, text: "환율 1,380원대로 하락…수출 기업은 환차익 기대와 경쟁력 우려" },
-    { eventId: 5, text: "전세 사기 지원 확대 법안 상임위 통과…보증금 회수 방안은 빠져" },
-  ],
 };

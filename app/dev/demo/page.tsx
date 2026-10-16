@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ResultView from "@/app/_components/ResultView";
-import { DEMO_DIGEST, DEMO_EVENTS, DEMO_FLOWS, DEMO_META } from "./demo-data";
+import { DEMO_EVENTS, DEMO_FLOWS, DEMO_META } from "./demo-data";
 
 export const metadata: Metadata = {
   title: "결과 화면 미리보기 (가상 데이터)",
@@ -22,8 +22,6 @@ export default function DemoPage() {
         meta={DEMO_META}
         finished
         flows={DEMO_FLOWS}
-        flowStatus="ready"
-        digest={DEMO_DIGEST}
       />
 
       <p className="mt-10 text-sm">

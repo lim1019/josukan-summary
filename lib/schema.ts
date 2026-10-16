@@ -48,20 +48,11 @@ export type SummarizedEvent = {
   previous?: EventLink;
 };
 
-/** 오늘의 내용 요약: 스크랩 전체를 한눈에 보여주는 짧은 글과 사건별 한 줄 */
-export type Digest = {
-  /** 오늘 스크랩의 핵심 (3문장 이내) */
-  overview: string;
-  /** 사건별 핵심 한 줄 (중요한 순, 최대 5개) */
-  highlights: { eventId: number; text: string }[];
-};
-
 /** 서버가 브라우저로 한 줄씩 흘려보내는 소식 (NDJSON) */
 export type StreamMessage =
   | { type: "meta"; edition: string | null; date: string | null; articleCount: number }
   | { type: "progress"; stage: "split" | "group" | "summarize"; message: string; done?: number; total?: number }
   | { type: "event"; event: SummarizedEvent }
-  | { type: "digest"; digest: Digest }
   | { type: "done"; eventCount: number }
   | { type: "error"; message: string };
 
@@ -177,24 +168,3 @@ export const FLOW_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-/** AI에게 요구하는 출력 모양: 오늘의 내용 요약 */
-export const DIGEST_SCHEMA = {
-  type: "object",
-  properties: {
-    overview: { type: "string" },
-    highlights: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          eventId: { type: "integer" },
-          text: { type: "string" },
-        },
-        required: ["eventId", "text"],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ["overview", "highlights"],
-  additionalProperties: false,
-} as const;

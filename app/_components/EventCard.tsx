@@ -1,5 +1,6 @@
 // Design Ref: §1.3 — 사건 카드 하나: 제목, 5문장 이내 요약, 보도사별 경향(긍정/부정/중립으로 묶음, 출처 포함), 다룬 곳.
 // AI가 만든 글은 모두 {글자} 방식으로만 그린다 (HTML로 해석하지 않음, 보안 점검 7번).
+import FlowCompare from "./FlowCompare";
 import { STANCES, type FlowInfo, type OutletView, type Stance, type SummarizedEvent } from "@/lib/schema";
 
 /** 태도 이름표. 색에만 기대지 않도록 글자(긍정/부정/중립)와 기호를 함께 쓴다. */
@@ -67,6 +68,8 @@ export default function EventCard({
       <h3 className="text-lg font-semibold leading-snug">{event.title || "(제목 없음)"}</h3>
 
       {event.summary && <p className="mt-3 leading-7">{event.summary}</p>}
+
+      {flow?.linked && <FlowCompare flow={flow} />}
 
       <div className="mt-4">
         <h4 className="text-sm font-medium text-zinc-500">보도사별 경향</h4>
