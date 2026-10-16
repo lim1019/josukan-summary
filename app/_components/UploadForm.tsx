@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { buildHistory, buildTimeline, DEFAULT_DAYS } from "@/lib/flow";
 import { EDITIONS, LIMITS, type Edition } from "@/lib/limits";
 import { extractPages } from "@/lib/pdf";
-import type { CompactEvent, FlowInfo, FlowMatch, StreamMessage, SummarizedEvent } from "@/lib/schema";
+import type { CompactEvent, Digest, FlowInfo, FlowMatch, StreamMessage, SummarizedEvent } from "@/lib/schema";
 import { hasSaved, isValidDate, saveRecord } from "@/lib/storage";
 import HistoryBar, { type HistoryNote } from "./HistoryBar";
 import ResultView, { type ResultMeta } from "./ResultView";
@@ -44,6 +44,7 @@ export default function UploadForm() {
   const [events, setEvents] = useState<SummarizedEvent[]>([]);
   const [meta, setMeta] = useState<ResultMeta | null>(null);
   const [flows, setFlows] = useState<Record<number, FlowInfo>>({});
+  const [digest, setDigest] = useState<Digest | null>(null);
   const [note, setNote] = useState<HistoryNote>(null);
   const [olderCount, setOlderCount] = useState(0);
   const [linking, setLinking] = useState(false);
@@ -58,6 +59,7 @@ export default function UploadForm() {
     setEvents([]);
     setMeta(null);
     setFlows({});
+    setDigest(null);
     setNote(null);
     setOlderCount(0);
     setManualSave(false);
@@ -243,6 +245,9 @@ export default function UploadForm() {
           collected.push(message.event);
           setEvents([...collected]);
           break;
+        case "digest":
+          setDigest(message.digest);
+          break;
         case "done":
           finished = true;
           setStatus({ kind: "done" });
@@ -361,7 +366,7 @@ export default function UploadForm() {
       </form>
 
       {(events.length > 0 || status.kind === "summarizing" || status.kind === "done") && (
-        <ResultView events={events} meta={meta} finished={status.kind !== "summarizing"} flows={flows} />
+        <ResultView events={events} meta={meta} finished={status.kind !== "summarizing"} flows={flows} digest={digest} />
       )}
 
       {status.kind === "done" && events.length > 0 && (

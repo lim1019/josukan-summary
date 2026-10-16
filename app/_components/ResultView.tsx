@@ -1,5 +1,5 @@
 // Design Ref: §1.3 — 결과 머리(사건 수·기사 수)와 사건 카드 목록. 다룬 보도사가 많은 사건이 위로 온다.
-import type { FlowInfo, SummarizedEvent } from "@/lib/schema";
+import type { Digest, FlowInfo, SummarizedEvent } from "@/lib/schema";
 import EventCard from "./EventCard";
 
 export type ResultMeta = {
@@ -8,17 +8,30 @@ export type ResultMeta = {
   articleCount: number;
 };
 
+/** 사건의 보도사별 태도를 "긍정 2·부정 3·중립 1" 모양으로 센다 (보도사가 한 곳뿐이면 비운다) */
+function stanceCounts(event: SummarizedEvent): string {
+  if (event.views.length === 0) return "";
+  return (["긍정", "부정", "중립"] as const)
+    .map((stance) => ({ stance, n: event.views.filter((v) => v.stance === stance).length }))
+    .filter((x) => x.n > 0)
+    .map((x) => `${x.stance} ${x.n}`)
+    .join("·");
+}
+
 export default function ResultView({
   events,
   meta,
   finished,
   flows,
+  digest,
 }: {
   events: SummarizedEvent[];
   meta: ResultMeta | null;
   finished: boolean;
   /** 사건 번호 → 흐름. 아직 찾지 못했으면 비어 있다 */
   flows: Record<number, FlowInfo>;
+  /** 오늘의 내용 요약. 아직 만드는 중이거나 만들지 못했으면 null */
+  digest: Digest | null;
 }) {
   const outletCount = (e: SummarizedEvent) => new Set(e.coverage.map((c) => c.outlet)).size;
   const sorted = [...events].sort((a, b) => outletCount(b) - outletCount(a) || a.id - b.id);
@@ -32,6 +45,27 @@ export default function ResultView({
         {meta ? ` · 기사 ${meta.articleCount}건` : ""}
         {!finished && <span className="ml-2 text-sm font-normal text-zinc-500">(만드는 중…)</span>}
       </h2>
+      {digest && (
+        <div className="mt-4 rounded-lg bg-zinc-50 p-5 dark:bg-zinc-900" aria-label="오늘의 내용 요약">
+          <h3 className="text-base font-semibold">오늘의 내용 요약</h3>
+          <p className="mt-2 leading-7">{digest.overview}</p>
+          {digest.highlights.length > 0 && (
+            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm leading-6">
+              {digest.highlights.map((h) => {
+                const event = events.find((e) => e.id === h.eventId);
+                const counts = event ? stanceCounts(event) : "";
+                return (
+                  <li key={h.eventId}>
+                    {h.text}
+                    {counts && <span className="text-zinc-500"> ({counts})</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
       <div className="mt-4 flex flex-col gap-4">
         {sorted.map((event) => (
           <EventCard
