@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import UploadForm from "./_components/UploadForm";
 
@@ -6,12 +7,20 @@ export default function Home() {
   return (
     <div className="flex flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       <main className="flex w-full max-w-3xl flex-col gap-6 bg-white px-8 py-24 dark:bg-black sm:px-16">
+        {/* 어두운 화면에서도 로고 글자가 보이도록 흰 바탕 위에 둔다 */}
+        <div className="w-fit rounded-lg bg-white px-3 py-2 dark:ring-1 dark:ring-zinc-700">
+          <Image src="/mofe-logo.png" alt="재정경제부" width={2000} height={633} className="h-12 w-auto" priority />
+        </div>
+
         <h1 className="text-5xl font-bold tracking-tight text-black dark:text-zinc-50">
           조석간 요약
         </h1>
         <p className="max-w-xl text-lg leading-8 text-zinc-600 dark:text-zinc-400">
           재정경제부 관련 조간·석간 신문 스크랩 PDF를 사건별로 묶어 요약하고, 같은 사건을
           보도사마다 어떻게 다뤘는지도 한눈에 보여줘요.
+        </p>
+        <p className="max-w-xl text-sm text-zinc-500">
+          보도 동향을 파악하기 위한 도구예요. 공식 입장이나 공식 자료가 아니며, 요약은 AI가 만들어 틀릴 수 있어요.
         </p>
 
         <UploadForm />

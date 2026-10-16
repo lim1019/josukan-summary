@@ -45,3 +45,6 @@ next-env.d.ts
 
 # 시험용 샘플 PDF (공개 저장소에 올리지 않는다)
 /samples/
+
+# 원본 로고 파일 (화면에는 public/mofe-logo.png를 쓴다)
+/logo.png
