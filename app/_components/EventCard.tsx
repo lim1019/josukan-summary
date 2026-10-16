@@ -68,29 +68,6 @@ export default function EventCard({
 
       {event.summary && <p className="mt-3 leading-7">{event.summary}</p>}
 
-      {flow?.linked && (
-        <div className="mt-3 rounded bg-violet-50 px-3 py-2 text-sm dark:bg-violet-950/40">
-          {flow.change && (
-            <p>
-              <span className="font-medium">달라진 점:</span> {flow.change}
-            </p>
-          )}
-          {flow.steps.length > 0 && (
-            <div className="mt-2">
-              <p className="font-medium">흐름</p>
-              <ol className="mt-1 space-y-0.5 text-zinc-700 dark:text-zinc-300">
-                {flow.steps.map((step, i) => (
-                  <li key={i}>
-                    <span className="text-zinc-500">{step.label}</span> {step.title} <span aria-hidden="true">→</span>
-                  </li>
-                ))}
-                <li className="font-medium">오늘 (이 요약)</li>
-              </ol>
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="mt-4">
         <h4 className="text-sm font-medium text-zinc-500">보도사별 경향</h4>
         {outlets.size < 2 ? (

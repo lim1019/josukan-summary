@@ -10,6 +10,7 @@ import { EDITIONS, LIMITS, type Edition } from "@/lib/limits";
 import { extractPages } from "@/lib/pdf";
 import type { CompactEvent, Digest, FlowInfo, FlowMatch, StreamMessage, SummarizedEvent } from "@/lib/schema";
 import { hasSaved, isValidDate, saveRecord } from "@/lib/storage";
+import type { FlowStatus } from "./FlowSection";
 import HistoryBar, { type HistoryNote } from "./HistoryBar";
 import ResultView, { type ResultMeta } from "./ResultView";
 import SavePanel from "./SavePanel";
@@ -45,6 +46,7 @@ export default function UploadForm() {
   const [meta, setMeta] = useState<ResultMeta | null>(null);
   const [flows, setFlows] = useState<Record<number, FlowInfo>>({});
   const [digest, setDigest] = useState<Digest | null>(null);
+  const [flowStatus, setFlowStatus] = useState<FlowStatus>("pending");
   const [note, setNote] = useState<HistoryNote>(null);
   const [olderCount, setOlderCount] = useState(0);
   const [linking, setLinking] = useState(false);
@@ -60,6 +62,7 @@ export default function UploadForm() {
     setMeta(null);
     setFlows({});
     setDigest(null);
+    setFlowStatus("pending");
     setNote(null);
     setOlderCount(0);
     setManualSave(false);
@@ -76,6 +79,7 @@ export default function UploadForm() {
 
     // 스크랩에서 날짜·회차를 읽지 못하면 이름표를 정할 수 없어서 자동 저장하지 않는다
     if (!isValidDate(date) || !isEdition(editionText)) {
+      setFlowStatus("empty");
       setManualSave(true);
       setNote({
         kind: "info",
@@ -103,6 +107,7 @@ export default function UploadForm() {
     if (history.events.length > 0) {
       searched = true;
       setLinking(true);
+      setFlowStatus("searching");
       try {
         const response = await fetch("/api/flow", {
           method: "POST",
@@ -137,6 +142,7 @@ export default function UploadForm() {
     setEvents(linked);
 
     // 화면에 보여줄 흐름 (저장돼 있는 연결을 따라 거슬러 올라간다)
+    setFlowStatus(!searched ? "empty" : flowError ? "error" : "ready");
     if (searched && !flowError) {
       const next: Record<number, FlowInfo> = {};
       for (const e of linked) {
@@ -366,7 +372,11 @@ export default function UploadForm() {
       </form>
 
       {(events.length > 0 || status.kind === "summarizing" || status.kind === "done") && (
-        <ResultView events={events} meta={meta} finished={status.kind !== "summarizing"} flows={flows} digest={digest} />
+        <ResultView events={events} meta={meta} finished={status.kind !== "summarizing"}
+          flows={flows}
+          flowStatus={flowStatus}
+          digest={digest}
+        />
       )}
 
       {status.kind === "done" && events.length > 0 && (
@@ -397,6 +407,7 @@ export default function UploadForm() {
             onCleared={() => {
               setSavedCount((c) => c + 1);
               setFlows({});
+              setFlowStatus("empty");
               setOlderCount(0);
               setNote({ kind: "info", message: "저장된 기록을 모두 지웠어요. 이 요약은 저장되어 있지 않아요." });
             }}

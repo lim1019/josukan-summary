@@ -1,6 +1,7 @@
 // Design Ref: §1.3 — 결과 머리(사건 수·기사 수)와 사건 카드 목록. 다룬 보도사가 많은 사건이 위로 온다.
 import type { Digest, FlowInfo, SummarizedEvent } from "@/lib/schema";
 import EventCard from "./EventCard";
+import FlowSection, { type FlowStatus } from "./FlowSection";
 
 export type ResultMeta = {
   edition: string | null;
@@ -23,6 +24,7 @@ export default function ResultView({
   meta,
   finished,
   flows,
+  flowStatus,
   digest,
 }: {
   events: SummarizedEvent[];
@@ -30,6 +32,8 @@ export default function ResultView({
   finished: boolean;
   /** 사건 번호 → 흐름. 아직 찾지 못했으면 비어 있다 */
   flows: Record<number, FlowInfo>;
+  /** 이어지는 사건 찾기의 진행 상태 */
+  flowStatus: FlowStatus;
   /** 오늘의 내용 요약. 아직 만드는 중이거나 만들지 못했으면 null */
   digest: Digest | null;
 }) {
@@ -66,7 +70,10 @@ export default function ResultView({
         </div>
       )}
 
-      <div className="mt-4 flex flex-col gap-4">
+      {finished && <FlowSection events={events} flows={flows} status={flowStatus} />}
+
+      <h3 className="mt-8 text-base font-semibold">사건별 요약과 보도사별 반응</h3>
+      <div className="mt-3 flex flex-col gap-4">
         {sorted.map((event) => (
           <EventCard
             key={event.id}
