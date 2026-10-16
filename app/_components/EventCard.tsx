@@ -102,11 +102,14 @@ export default function EventCard({
 
       <p className="mt-4 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
         <span>다룬 곳</span>
-        {event.coverage.map((c, i) => (
-          <span key={i} className="rounded-full border border-zinc-300 px-2 py-0.5 dark:border-zinc-700">
-            {c.outlet} {c.page}쪽
-          </span>
-        ))}
+        {/* PDF 몇 쪽인지 먼저, 그다음 보도사 이름. 쪽수가 앞선 것부터 나열한다. */}
+        {[...event.coverage]
+          .sort((x, y) => x.page - y.page)
+          .map((c, i) => (
+            <span key={i} className="rounded-full border border-zinc-300 px-2 py-0.5 dark:border-zinc-700">
+              PDF {c.page}쪽 {c.outlet}
+            </span>
+          ))}
       </p>
 
       {event.warnings.length > 0 && (
