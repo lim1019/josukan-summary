@@ -29,6 +29,8 @@ export type OutletView = {
   page: number;
   stance: Stance;
   text: string;
+  /** text 안에서 태도(긍정·부정·중립) 판단의 근거가 된 기사 속 표현. 화면에서 굵게 보여준다. */
+  evidence?: string[];
 };
 
 /** 사건 하나의 요약 결과 */
@@ -87,8 +89,9 @@ export const SUMMARY_SCHEMA = {
           page: { type: "integer" },
           stance: { type: "string", enum: ["긍정", "부정", "중립"] },
           text: { type: "string" },
+          evidence: { type: "array", items: { type: "string" } },
         },
-        required: ["outlet", "page", "stance", "text"],
+        required: ["outlet", "page", "stance", "text", "evidence"],
         additionalProperties: false,
       },
     },

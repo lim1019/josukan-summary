@@ -20,6 +20,36 @@ export function stripLinks(text: string): string {
   return text.replace(/https?:\/\/\S+/g, "").replace(/\s{2,}/g, " ").trim();
 }
 
+/** 따옴표·공백 차이는 무시하고 비교하기 위한 정리 */
+function normalize(text: string): string {
+  return text.replace(/[‘’“”'"\s]/g, "");
+}
+
+/**
+ * 태도 판단의 근거 표현을 확인한다. 아래를 모두 만족하는 것만 남긴다.
+ * - 한 줄(text) 안에 그대로 들어 있다 (그래야 화면에서 굵게 표시할 수 있다)
+ * - 그 보도사의 기사 원문에 실제로 있다 (AI가 지어낸 인용을 걸러낸다)
+ * - 너무 길지 않다 (줄 전체를 굵게 만드는 것을 막는다)
+ */
+export function verifyEvidence(
+  evidence: string[],
+  lineText: string,
+  outlet: string,
+  sources: { outlet: string; text: string }[],
+): string[] {
+  const source = normalize(sources.filter((s) => s.outlet === outlet).map((s) => s.text).join("\n"));
+  const kept: string[] = [];
+  for (const raw of evidence) {
+    const phrase = raw.trim();
+    if (phrase.length < 2 || phrase.length > 30) continue;
+    if (!lineText.includes(phrase)) continue;
+    if (source.length > 0 && !source.includes(normalize(phrase))) continue;
+    if (!kept.includes(phrase)) kept.push(phrase);
+    if (kept.length >= 2) break;
+  }
+  return kept;
+}
+
 export type CheckedSummary = {
   title: string;
   summary: string;
@@ -40,9 +70,11 @@ export function checkSummary(
   raw: {
     title: string;
     summary: string;
-    views: { outlet: string; page: number; stance: string; text: string }[];
+    views: { outlet: string; page: number; stance: string; text: string; evidence?: string[] }[];
   },
   coverage: { outlet: string; page: number }[],
+  /** 근거 표현이 정말 기사에 있는지 확인할 때 쓰는 기사 원문 */
+  sources: { outlet: string; text: string }[] = [],
 ): CheckedSummary {
   const problems: string[] = [];
   const outlets = new Set(coverage.map((c) => c.outlet));
@@ -91,7 +123,13 @@ export function checkSummary(
       problems.push("줄의 쪽수를 실제 기사 쪽수로 고쳤어요");
     }
     seen.add(v.outlet);
-    views.push({ outlet: v.outlet, page, stance: v.stance as Stance, text });
+    views.push({
+      outlet: v.outlet,
+      page,
+      stance: v.stance as Stance,
+      text,
+      evidence: verifyEvidence(v.evidence ?? [], text, v.outlet, sources),
+    });
   }
 
   const missing = [...outlets].filter((o) => !seen.has(o));

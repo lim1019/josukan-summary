@@ -95,7 +95,8 @@ const SUMMARY_SYSTEM = `당신은 신문 스크랩을 정리하는 편집 보조
   - outlet: 기사의 보도사 이름 그대로.
   - page: 그 보도사 기사가 시작하는 쪽수.
   - stance: 이 사건이 가리키는 정책·결정·사실에 대해 그 기사의 표현과 강조점이 우호적이면 "긍정", 비판적이거나 우려 중심이면 "부정", 사실 전달 위주이거나 양쪽을 균형 있게 다루면 "중립".
-  - text: 그 보도사가 무엇을 강조했고 어떤 표현을 썼는지 한 문장. 한 항목에는 보도사 한 곳만 쓰고 다른 보도사 이름을 섞지 마세요.
+  - text: 그 보도사가 무엇을 강조했고 어떤 표현을 썼는지 한 문장, 100자 안팎. 보도사 이름은 화면에 따로 표시되니 문장에 반복해서 쓰지 마세요. 다른 보도사 이름도 섞지 마세요.
+  - evidence: stance(긍정·부정·중립)를 판단한 근거가 된, 그 보도사 기사 속 실제 표현을 1~2개. 기사에 나온 그대로 쓰고(짧은 단어나 구절), 반드시 text 안에 똑같은 글자로 들어 있어야 합니다. 근거가 될 표현이 없으면 빈 목록.
   - 기사에 실제로 나타난 표현과 강조점만 근거로 삼으세요. 보도사의 정치 성향을 단정하거나 평가하지 마세요. stance는 이 사건에 대한 그 기사의 태도일 뿐입니다.
 - 보도사가 한 곳뿐이면 views는 빈 목록으로 두세요.
 - 링크(http로 시작하는 주소)는 쓰지 마세요.
@@ -111,7 +112,7 @@ function summaryPrompt(articles: Article[], feedback?: string): string {
 function isRawSummary(value: unknown): value is {
   title: string;
   summary: string;
-  views: { outlet: string; page: number; stance: string; text: string }[];
+  views: { outlet: string; page: number; stance: string; text: string; evidence?: string[] }[];
 } {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
@@ -126,7 +127,8 @@ function isRawSummary(value: unknown): value is {
         typeof x.outlet === "string" &&
         typeof x.page === "number" &&
         typeof x.stance === "string" &&
-        typeof x.text === "string"
+        typeof x.text === "string" &&
+        (x.evidence === undefined || (Array.isArray(x.evidence) && x.evidence.every((p) => typeof p === "string")))
       );
     })
   );
@@ -154,7 +156,11 @@ export async function summarizeEvent(
       feedback = "답의 형식이 올바르지 않았어요.";
       continue;
     }
-    last = checkSummary(raw, coverage);
+    last = checkSummary(
+      raw,
+      coverage,
+      articles.map((a) => ({ outlet: a.outlet, text: a.text })),
+    );
     if (last.problems.length === 0) break;
     feedback = last.problems.join(" / ");
   }

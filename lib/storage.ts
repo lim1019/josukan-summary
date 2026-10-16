@@ -49,7 +49,8 @@ function isSummarizedEvent(value: unknown): value is SummarizedEvent {
         typeof x.page === "number" &&
         typeof x.text === "string" &&
         typeof x.stance === "string" &&
-        (STANCES as readonly string[]).includes(x.stance)
+        (STANCES as readonly string[]).includes(x.stance) &&
+        (x.evidence === undefined || (Array.isArray(x.evidence) && x.evidence.every((p) => typeof p === "string")))
       );
     })
   );

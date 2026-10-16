@@ -9,6 +9,35 @@ const STANCE_STYLE: Record<Stance, { mark: string; className: string }> = {
   중립: { mark: "·", className: "text-zinc-600 dark:text-zinc-400" },
 };
 
+/**
+ * 한 줄 글 안에서 근거 표현을 굵게 만든다. AI가 만든 글이므로 HTML로 해석하지 않고, 글자 조각을 나눠서 <strong>으로만 감싼다.
+ */
+function BoldEvidence({ text, phrases }: { text: string; phrases: string[] }) {
+  // 근거 표현이 놓인 자리를 찾고, 겹치는 자리는 합친다
+  const ranges: [number, number][] = [];
+  for (const phrase of phrases) {
+    const start = text.indexOf(phrase);
+    if (start >= 0) ranges.push([start, start + phrase.length]);
+  }
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const range of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+    else merged.push([...range]);
+  }
+
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  merged.forEach(([start, end], i) => {
+    if (start > cursor) parts.push(text.slice(cursor, start));
+    parts.push(<strong key={i}>{text.slice(start, end)}</strong>);
+    cursor = end;
+  });
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return <>{parts}</>;
+}
+
 export default function EventCard({
   event,
   comparison,
@@ -61,7 +90,8 @@ export default function EventCard({
                 <ul className="mt-1 list-disc space-y-1 pl-5 text-sm leading-6">
                   {views.map((v) => (
                     <li key={v.outlet}>
-                      <span className="font-medium">{v.outlet}</span>: {v.text}{" "}
+                      <span className="font-medium">{v.outlet}</span>:{" "}
+                      <BoldEvidence text={v.text} phrases={v.evidence ?? []} />{" "}
                       <span className="text-zinc-500">({v.page}쪽)</span>
                     </li>
                   ))}
